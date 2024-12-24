@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     kinde = {
-      source = "CSymes/kinde"
+      source = "AZZO/kinde"
     }
   }
 }
