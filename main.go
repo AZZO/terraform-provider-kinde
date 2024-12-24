@@ -5,7 +5,7 @@ import (
 	"flag"
 	"log"
 
-	kinde_provider "github.com/AZZO/terraform-provider-kinde/kinde_provider"
+	"github.com/AZZO/terraform-provider-kinde/kinde"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 )
 
@@ -24,7 +24,7 @@ func main() {
 		Debug:   debug,
 	}
 
-	err := providerserver.Serve(context.Background(), kinde_provider.New(version), opts)
+	err := providerserver.Serve(context.Background(), kinde.New(version), opts)
 
 	if err != nil {
 		log.Fatal(err.Error())
