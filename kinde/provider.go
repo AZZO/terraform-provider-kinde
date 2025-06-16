@@ -2,6 +2,8 @@ package kinde
 
 import (
 	"context"
+	"log"
+	"time"
 
 	"github.com/AZZO/terraform-provider-kinde/datasources"
 	"github.com/AZZO/terraform-provider-kinde/kinde_client"
@@ -32,6 +34,8 @@ type KindeProviderModel struct {
 	IssuerUrl    types.String `tfsdk:"issuer_url"`
 	ClientId     types.String `tfsdk:"client_id"`
 	ClientSecret types.String `tfsdk:"client_secret"`
+	Timeout      types.Int64  `tfsdk:"timeout"`
+	RateLimit    types.Int64  `tfsdk:"rate_limit"`
 }
 
 func (p *KindeProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -41,20 +45,27 @@ func (p *KindeProvider) Metadata(ctx context.Context, req provider.MetadataReque
 
 func (p *KindeProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "The Kinde provider is used to interact with the Kinde API to manage applications and other resources.",
 		Attributes: map[string]schema.Attribute{
 			"issuer_url": schema.StringAttribute{
-				Description: "The Kinde issuer URL. This is the base URL of your Kinde instance.",
 				Required:    true,
+				Description: "The Kinde issuer URL",
 			},
 			"client_id": schema.StringAttribute{
-				Description: "The Kinde client ID. This is used to authenticate with the Kinde API.",
 				Required:    true,
+				Description: "The Kinde client ID",
 			},
 			"client_secret": schema.StringAttribute{
-				Description: "The Kinde client secret. This is used to authenticate with the Kinde API.",
 				Required:    true,
 				Sensitive:   true,
+				Description: "The Kinde client secret",
+			},
+			"timeout": schema.Int64Attribute{
+				Optional:    true,
+				Description: "The timeout in seconds for API requests (default: 30)",
+			},
+			"rate_limit": schema.Int64Attribute{
+				Optional:    true,
+				Description: "The rate limit in requests per second (default: 10)",
 			},
 		},
 	}
@@ -90,7 +101,30 @@ func (p *KindeProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		return
 	}
 
-	client, err := kinde_client.NewClient(ctx, data.IssuerUrl.ValueString(), data.ClientId.ValueString(), data.ClientSecret.ValueString())
+	// Set up client options
+	var opts []kinde_client.ClientOption
+
+	// Configure timeout if provided
+	if !data.Timeout.IsNull() {
+		opts = append(opts, kinde_client.WithTimeout(time.Duration(data.Timeout.ValueInt64())*time.Second))
+	}
+
+	// Configure rate limit if provided
+	if !data.RateLimit.IsNull() {
+		opts = append(opts, kinde_client.WithRateLimit(int(data.RateLimit.ValueInt64())))
+	}
+
+	// Configure logging
+	logger := log.New(log.Writer(), "[kinde] ", log.LstdFlags)
+	opts = append(opts, kinde_client.WithLogger(logger))
+
+	client, err := kinde_client.NewClient(
+		ctx,
+		data.IssuerUrl.ValueString(),
+		data.ClientId.ValueString(),
+		data.ClientSecret.ValueString(),
+		opts...,
+	)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Create Kinde API Client",
