@@ -148,6 +148,7 @@ func (p *KindeProvider) DataSources(ctx context.Context) []func() datasource.Dat
 	return []func() datasource.DataSource{
 		datasources.NewApplicationDataSource,
 		datasources.NewApiDataSource,
+		datasources.NewEnvironmentDataSource,
 	}
 }
 

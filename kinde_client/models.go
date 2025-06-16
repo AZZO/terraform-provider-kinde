@@ -53,3 +53,23 @@ type responseApiCreate struct {
 	Message string      `json:"message"`
 	Api     ApiResource `json:"api"`
 }
+
+type EnvironmentResource struct {
+	Code            string `json:"code"`
+	Name            string `json:"name"`
+	IsDefault       bool   `json:"is_default"`
+	IsLive          bool   `json:"is_live"`
+	KindeDomain     string `json:"kinde_domain"`
+	CustomDomain    string `json:"custom_domain"`
+	Logo            string `json:"logo"`
+	LogoDark        string `json:"logo_dark"`
+	FaviconSvg      string `json:"favicon_svg"`
+	FaviconFallback string `json:"favicon_fallback"`
+	CreatedOn       string `json:"created_on"`
+}
+
+type responseEnvironmentGet struct {
+	Code        string              `json:"code"`
+	Message     string              `json:"message"`
+	Environment EnvironmentResource `json:"environment"`
+}
