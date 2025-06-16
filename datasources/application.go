@@ -23,11 +23,13 @@ type ApplicationDataSource struct {
 
 // ApplicationDataSourceModel describes the data source data model.
 type ApplicationDataSourceModel struct {
-	ApplicationId types.String `tfsdk:"application_id"`
-	Name          types.String `tfsdk:"name"`
-	Type          types.String `tfsdk:"type"`
-	ClientId      types.String `tfsdk:"client_id"`
-	ClientSecret  types.String `tfsdk:"client_secret"`
+	ApplicationId types.String   `tfsdk:"application_id"`
+	Name          types.String   `tfsdk:"name"`
+	Type          types.String   `tfsdk:"type"`
+	ClientId      types.String   `tfsdk:"client_id"`
+	ClientSecret  types.String   `tfsdk:"client_secret"`
+	LogoutUris    []types.String `tfsdk:"logout_uris"`
+	RedirectUris  []types.String `tfsdk:"redirect_uris"`
 }
 
 // NewApplicationDataSource is a helper function to simplify the provider implementation.
@@ -67,6 +69,16 @@ func (d *ApplicationDataSource) Schema(ctx context.Context, req datasource.Schem
 				Optional:    true,
 				Computed:    true,
 				Sensitive:   true,
+			},
+			"logout_uris": schema.ListAttribute{
+				Description: "List of logout URIs for the application.",
+				ElementType: types.StringType,
+				Computed:    true,
+			},
+			"redirect_uris": schema.ListAttribute{
+				Description: "List of redirect URIs for the application.",
+				ElementType: types.StringType,
+				Computed:    true,
 			},
 		},
 	}
@@ -109,12 +121,35 @@ func (d *ApplicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 		return
 	}
 
+	// Get callbacks
+	callbacks, err := d.client.GetCallbacks(ctx, data.ApplicationId.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Reading application callbacks",
+			"Could not read application callbacks: "+err.Error(),
+		)
+		return
+	}
+
+	// Convert []string to []types.String
+	logoutUris := make([]types.String, len(callbacks.LogoutUris))
+	for i, uri := range callbacks.LogoutUris {
+		logoutUris[i] = types.StringValue(uri)
+	}
+
+	redirectUris := make([]types.String, len(callbacks.RedirectUris))
+	for i, uri := range callbacks.RedirectUris {
+		redirectUris[i] = types.StringValue(uri)
+	}
+
 	// Map response body to schema and populate Computed attribute values
 	data.ApplicationId = types.StringValue(application.Id)
 	data.Name = types.StringValue(application.Name)
 	data.Type = types.StringValue(application.Type)
 	data.ClientId = types.StringValue(application.ClientId)
 	data.ClientSecret = types.StringValue(application.ClientSecret)
+	data.LogoutUris = logoutUris
+	data.RedirectUris = redirectUris
 
 	// Save data into state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
