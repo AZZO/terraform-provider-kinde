@@ -1,11 +1,13 @@
 package kinde_client
 
-func (c *Client) GetApplication(id string) (ApplicationResource, error) {
+import (
+	"context"
+)
 
+func (c *Client) GetApplication(ctx context.Context, id string) (ApplicationResource, error) {
 	url := c.endpointApplication(id)
 
-	app, err := doGetRequest[responseApplicationGet](c, url)
-
+	app, err := doGetRequest[responseApplicationGet](c, ctx, url)
 	if err != nil {
 		return ApplicationResource{}, err
 	}
@@ -13,7 +15,7 @@ func (c *Client) GetApplication(id string) (ApplicationResource, error) {
 	return app.Application, nil
 }
 
-func (c *Client) CreateApplication(name string, appType string) (ApplicationResource, error) {
+func (c *Client) CreateApplication(ctx context.Context, name string, appType string) (ApplicationResource, error) {
 	url := c.endpointApplicationsList()
 
 	body := requestApplicationCreate{
@@ -21,8 +23,7 @@ func (c *Client) CreateApplication(name string, appType string) (ApplicationReso
 		Type: appType,
 	}
 
-	app, err := doPostRequest[responseApplicationCreate](c, url, body)
-
+	app, err := doPostRequest[responseApplicationCreate](c, ctx, url, body)
 	if err != nil {
 		return ApplicationResource{}, err
 	}

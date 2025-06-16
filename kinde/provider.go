@@ -3,7 +3,9 @@ package kinde
 import (
 	"context"
 
+	"github.com/AZZO/terraform-provider-kinde/datasources"
 	"github.com/AZZO/terraform-provider-kinde/kinde_client"
+	"github.com/AZZO/terraform-provider-kinde/resources"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/function"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -39,16 +41,20 @@ func (p *KindeProvider) Metadata(ctx context.Context, req provider.MetadataReque
 
 func (p *KindeProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "The Kinde provider is used to interact with the Kinde API to manage applications and other resources.",
 		Attributes: map[string]schema.Attribute{
 			"issuer_url": schema.StringAttribute{
-				Required: true,
+				Description: "The Kinde issuer URL. This is the base URL of your Kinde instance.",
+				Required:    true,
 			},
 			"client_id": schema.StringAttribute{
-				Required: true,
+				Description: "The Kinde client ID. This is used to authenticate with the Kinde API.",
+				Required:    true,
 			},
 			"client_secret": schema.StringAttribute{
-				Required:  true,
-				Sensitive: true,
+				Description: "The Kinde client secret. This is used to authenticate with the Kinde API.",
+				Required:    true,
+				Sensitive:   true,
 			},
 		},
 	}
@@ -76,7 +82,7 @@ func (p *KindeProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	}
 	if data.ClientSecret.IsNull() {
 		resp.Diagnostics.AddAttributeError(path.Root("client_secret"),
-			"Unknown Client SEcret",
+			"Unknown Client Secret",
 			"Client Secret must be provided")
 	}
 
@@ -99,13 +105,13 @@ func (p *KindeProvider) Configure(ctx context.Context, req provider.ConfigureReq
 
 func (p *KindeProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		NewApplicationResource,
+		resources.NewApplicationResource,
 	}
 }
 
 func (p *KindeProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		NewApplicationDataSource,
+		datasources.NewApplicationDataSource,
 	}
 }
 

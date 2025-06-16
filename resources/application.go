@@ -1,4 +1,4 @@
-package kinde
+package resources
 
 import (
 	"context"
@@ -14,21 +14,17 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces.
 var (
-	_ resource.Resource              = &applicationResource{}
-	_ resource.ResourceWithConfigure = &applicationResource{}
+	_ resource.Resource              = &ApplicationResource{}
+	_ resource.ResourceWithConfigure = &ApplicationResource{}
 )
 
-// NewApplicationResource is a helper function to simplify the provider implementation.
-func NewApplicationResource() resource.Resource {
-	return &applicationResource{}
-}
-
-// applicationResource is the resource implementation.
-type applicationResource struct {
+// ApplicationResource is the resource implementation.
+type ApplicationResource struct {
 	client *kinde_client.Client
 }
 
-type applicationResourceModel struct {
+// ApplicationResourceModel describes the resource data model.
+type ApplicationResourceModel struct {
 	ApplicationId types.String `tfsdk:"application_id"`
 	Name          types.String `tfsdk:"name"`
 	Type          types.String `tfsdk:"type"`
@@ -36,22 +32,23 @@ type applicationResourceModel struct {
 	ClientSecret  types.String `tfsdk:"client_secret"`
 }
 
+// NewApplicationResource is a helper function to simplify the provider implementation.
+func NewApplicationResource() resource.Resource {
+	return &ApplicationResource{}
+}
+
 // Configure adds the provider configured client to the resource.
-func (r *applicationResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
-	// Add a nil check when handling ProviderData because Terraform
-	// sets that data after it calls the ConfigureProvider RPC.
+func (r *ApplicationResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		return
 	}
 
 	client, ok := req.ProviderData.(*kinde_client.Client)
-
 	if !ok {
 		resp.Diagnostics.AddError(
-			"Unexpected Data Source Configure Type",
+			"Unexpected Resource Configure Type",
 			fmt.Sprintf("Expected *kinde_client.Client, got: %T.", req.ProviderData),
 		)
-
 		return
 	}
 
@@ -59,56 +56,55 @@ func (r *applicationResource) Configure(_ context.Context, req resource.Configur
 }
 
 // Metadata returns the resource type name.
-func (r *applicationResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+func (r *ApplicationResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_application"
 }
 
 // Schema defines the schema for the resource.
-func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *ApplicationResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Manages a Kinde application.",
 		Attributes: map[string]schema.Attribute{
 			"application_id": schema.StringAttribute{
-				MarkdownDescription: "Unique identifier",
-				Computed:            true,
+				Description: "Unique identifier for the application.",
+				Computed:    true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Human-readable name of the application",
-				Required:            true,
+				Description: "Human-readable name of the application.",
+				Required:    true,
 			},
 			"type": schema.StringAttribute{
-				MarkdownDescription: "Type of the application",
-				Required:            true,
+				Description: "Type of the application. Must be one of: reg (Regular), m2m (Machine to Machine), spa (Single Page Application).",
+				Required:    true,
 				Validators: []validator.String{
 					stringvalidator.OneOf("reg", "m2m", "spa"),
 				},
 			},
 			"client_id": schema.StringAttribute{
-				MarkdownDescription: "Client ID",
-				Optional:            true,
-				Computed:            true,
+				Description: "Client ID for the application.",
+				Optional:    true,
+				Computed:    true,
 			},
 			"client_secret": schema.StringAttribute{
-				MarkdownDescription: "Client Secret",
-				Optional:            true,
-				Computed:            true,
-				Sensitive:           true,
+				Description: "Client Secret for the application.",
+				Optional:    true,
+				Computed:    true,
+				Sensitive:   true,
 			},
 		},
 	}
 }
 
 // Create creates the resource and sets the initial Terraform state.
-func (r *applicationResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	// Retrieve values from plan
-	var plan applicationResourceModel
+func (r *ApplicationResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var plan ApplicationResourceModel
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Create new application
-	application, err := r.client.CreateApplication(plan.Name.ValueString(), plan.Type.ValueString())
+	application, err := r.client.CreateApplication(ctx, plan.Name.ValueString(), plan.Type.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating application",
@@ -117,8 +113,7 @@ func (r *applicationResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	// Map response body to schema and populate Computed attribute values
-	plan = applicationResourceModel{
+	plan = ApplicationResourceModel{
 		ApplicationId: types.StringValue(application.Id),
 		Name:          types.StringValue(application.Name),
 		Type:          types.StringValue(application.Type),
@@ -126,25 +121,20 @@ func (r *applicationResource) Create(ctx context.Context, req resource.CreateReq
 		ClientSecret:  types.StringValue(application.ClientSecret),
 	}
 
-	// Set state to fully populated data
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 }
 
 // Read refreshes the Terraform state with the latest data.
-func (r *applicationResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state applicationResourceModel
+func (r *ApplicationResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var state ApplicationResourceModel
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Get live details
-	application, err := r.client.GetApplication(state.ApplicationId.ValueString())
+	application, err := r.client.GetApplication(ctx, state.ApplicationId.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading application",
@@ -153,25 +143,30 @@ func (r *applicationResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
-	// Overwrite with refreshed state
 	state.ApplicationId = types.StringValue(application.Id)
 	state.Name = types.StringValue(application.Name)
 	state.Type = types.StringValue(application.Type)
 	state.ClientId = types.StringValue(application.ClientId)
 	state.ClientSecret = types.StringValue(application.ClientSecret)
 
-	// Set refreshed state
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
-func (r *applicationResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (r *ApplicationResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	// TODO: Implement update functionality
+	resp.Diagnostics.AddWarning(
+		"Update not implemented",
+		"Update functionality is not yet implemented for this resource.",
+	)
 }
 
 // Delete deletes the resource and removes the Terraform state on success.
-func (r *applicationResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+func (r *ApplicationResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	// TODO: Implement delete functionality
+	resp.Diagnostics.AddWarning(
+		"Delete not implemented",
+		"Delete functionality is not yet implemented for this resource.",
+	)
 }
