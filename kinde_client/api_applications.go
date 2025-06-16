@@ -2,18 +2,28 @@ package kinde_client
 
 import (
 	"context"
-	"fmt"
 )
 
 func (c *Client) GetApplication(ctx context.Context, id string) (ApplicationResource, error) {
 	url := c.endpointApplication(id)
 
-	app, err := doGetRequest[responseApplicationGet](c, ctx, url)
+	response, err := doGetRequest[responseApplicationGet](c, ctx, url)
 	if err != nil {
 		return ApplicationResource{}, err
 	}
 
-	return app.Application, nil
+	return response.Application, nil
+}
+
+func (c *Client) GetApplications(ctx context.Context) ([]ApplicationResource, error) {
+	url := c.endpointApplicationsList()
+
+	response, err := doGetRequest[responseApplicationGet](c, ctx, url)
+	if err != nil {
+		return nil, err
+	}
+
+	return []ApplicationResource{response.Application}, nil
 }
 
 func (c *Client) CreateApplication(ctx context.Context, name string, appType string) (ApplicationResource, error) {
@@ -47,18 +57,16 @@ func (c *Client) UpdateApplication(ctx context.Context, id string, name string, 
 		RedirectUris: redirectUris,
 	}
 
-	app, err := doPostRequest[responseApplicationGet](c, ctx, url, body)
+	response, err := doPostRequest[responseApplicationGet](c, ctx, url, body)
 	if err != nil {
 		return ApplicationResource{}, err
 	}
 
-	return app.Application, nil
+	return response.Application, nil
 }
 
 func (c *Client) DeleteApplication(ctx context.Context, id string) error {
-	url := c.endpointApplication(id)
-
-	_, err := c.doRequest(ctx, "DELETE", url, nil, 3)
+	_, err := doDeleteRequest[responseApplicationDelete](c, ctx, c.endpointApplication(id))
 	return err
 }
 
@@ -73,10 +81,8 @@ type responseCallbacks struct {
 	Callbacks Callbacks `json:"callbacks"`
 }
 
-func (c *Client) GetCallbacks(ctx context.Context, id string) (Callbacks, error) {
-	url := fmt.Sprintf("%v/api/v1/applications/%v/callbacks", c.IssuerUrl, id)
-
-	callbacks, err := doGetRequest[responseCallbacks](c, ctx, url)
+func (c *Client) GetApplicationCallbacks(ctx context.Context, id string) (Callbacks, error) {
+	callbacks, err := doGetRequest[responseCallbacks](c, ctx, c.endpointApplicationCallbacksGet(id))
 	if err != nil {
 		return Callbacks{}, err
 	}
@@ -84,10 +90,8 @@ func (c *Client) GetCallbacks(ctx context.Context, id string) (Callbacks, error)
 	return callbacks.Callbacks, nil
 }
 
-func (c *Client) UpdateCallbacks(ctx context.Context, id string, callbacks Callbacks) (Callbacks, error) {
-	url := fmt.Sprintf("%v/api/v1/applications/%v/callbacks", c.IssuerUrl, id)
-
-	updated, err := doPostRequest[responseCallbacks](c, ctx, url, callbacks)
+func (c *Client) UpdateApplicationCallbacks(ctx context.Context, id string, callbacks Callbacks) (Callbacks, error) {
+	updated, err := doPostRequest[responseCallbacks](c, ctx, c.endpointApplicationCallbacksUpdate(id), callbacks)
 	if err != nil {
 		return Callbacks{}, err
 	}

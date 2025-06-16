@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/AZZO/terraform-provider-kinde/kinde_client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -23,13 +24,13 @@ type ApplicationDataSource struct {
 
 // ApplicationDataSourceModel describes the data source data model.
 type ApplicationDataSourceModel struct {
-	ApplicationId types.String   `tfsdk:"application_id"`
-	Name          types.String   `tfsdk:"name"`
-	Type          types.String   `tfsdk:"type"`
-	ClientId      types.String   `tfsdk:"client_id"`
-	ClientSecret  types.String   `tfsdk:"client_secret"`
-	LogoutUris    []types.String `tfsdk:"logout_uris"`
-	RedirectUris  []types.String `tfsdk:"redirect_uris"`
+	ApplicationId types.String `tfsdk:"application_id"`
+	Name          types.String `tfsdk:"name"`
+	Type          types.String `tfsdk:"type"`
+	ClientId      types.String `tfsdk:"client_id"`
+	ClientSecret  types.String `tfsdk:"client_secret"`
+	LogoutUris    types.List   `tfsdk:"logout_uris"`
+	RedirectUris  types.List   `tfsdk:"redirect_uris"`
 }
 
 // NewApplicationDataSource is a helper function to simplify the provider implementation.
@@ -122,7 +123,7 @@ func (d *ApplicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 	}
 
 	// Get callbacks
-	callbacks, err := d.client.GetCallbacks(ctx, data.ApplicationId.ValueString())
+	callbacks, err := d.client.GetApplicationCallbacks(ctx, data.ApplicationId.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading application callbacks",
@@ -131,15 +132,15 @@ func (d *ApplicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 		return
 	}
 
-	// Convert []string to []types.String
-	logoutUris := make([]types.String, len(callbacks.LogoutUris))
+	// Convert []string to types.List
+	logoutUrisList := make([]attr.Value, len(callbacks.LogoutUris))
 	for i, uri := range callbacks.LogoutUris {
-		logoutUris[i] = types.StringValue(uri)
+		logoutUrisList[i] = types.StringValue(uri)
 	}
 
-	redirectUris := make([]types.String, len(callbacks.RedirectUris))
+	redirectUrisList := make([]attr.Value, len(callbacks.RedirectUris))
 	for i, uri := range callbacks.RedirectUris {
-		redirectUris[i] = types.StringValue(uri)
+		redirectUrisList[i] = types.StringValue(uri)
 	}
 
 	// Map response body to schema and populate Computed attribute values
@@ -148,8 +149,8 @@ func (d *ApplicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 	data.Type = types.StringValue(application.Type)
 	data.ClientId = types.StringValue(application.ClientId)
 	data.ClientSecret = types.StringValue(application.ClientSecret)
-	data.LogoutUris = logoutUris
-	data.RedirectUris = redirectUris
+	data.LogoutUris = types.ListValueMust(types.StringType, logoutUrisList)
+	data.RedirectUris = types.ListValueMust(types.StringType, redirectUrisList)
 
 	// Save data into state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

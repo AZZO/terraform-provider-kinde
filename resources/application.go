@@ -8,6 +8,7 @@ import (
 	"github.com/AZZO/terraform-provider-kinde/kinde_client"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -27,13 +28,13 @@ type ApplicationResource struct {
 
 // ApplicationResourceModel describes the resource data model.
 type ApplicationResourceModel struct {
-	ApplicationId types.String   `tfsdk:"application_id"`
-	Name          types.String   `tfsdk:"name"`
-	Type          types.String   `tfsdk:"type"`
-	ClientId      types.String   `tfsdk:"client_id"`
-	ClientSecret  types.String   `tfsdk:"client_secret"`
-	LogoutUris    []types.String `tfsdk:"logout_uris"`
-	RedirectUris  []types.String `tfsdk:"redirect_uris"`
+	ApplicationId types.String `tfsdk:"application_id"`
+	Name          types.String `tfsdk:"name"`
+	Type          types.String `tfsdk:"type"`
+	ClientId      types.String `tfsdk:"client_id"`
+	ClientSecret  types.String `tfsdk:"client_secret"`
+	LogoutUris    types.List   `tfsdk:"logout_uris"`
+	RedirectUris  types.List   `tfsdk:"redirect_uris"`
 }
 
 // NewApplicationResource is a helper function to simplify the provider implementation.
@@ -145,15 +146,23 @@ func (r *ApplicationResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	// Convert types.String slices to []string
-	logoutUris := make([]string, len(plan.LogoutUris))
-	for i, uri := range plan.LogoutUris {
-		logoutUris[i] = uri.ValueString()
+	// Convert types.List to []string
+	var logoutUris []string
+	if !plan.LogoutUris.IsNull() && !plan.LogoutUris.IsUnknown() {
+		diags := plan.LogoutUris.ElementsAs(ctx, &logoutUris, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
-	redirectUris := make([]string, len(plan.RedirectUris))
-	for i, uri := range plan.RedirectUris {
-		redirectUris[i] = uri.ValueString()
+	var redirectUris []string
+	if !plan.RedirectUris.IsNull() && !plan.RedirectUris.IsUnknown() {
+		diags := plan.RedirectUris.ElementsAs(ctx, &redirectUris, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
 	// Update the application with URIs if provided
@@ -162,7 +171,7 @@ func (r *ApplicationResource) Create(ctx context.Context, req resource.CreateReq
 			LogoutUris:   logoutUris,
 			RedirectUris: redirectUris,
 		}
-		_, err = r.client.UpdateCallbacks(ctx, application.Id, callbacks)
+		_, err = r.client.UpdateApplicationCallbacks(ctx, application.Id, callbacks)
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Error updating application URIs",
@@ -172,14 +181,25 @@ func (r *ApplicationResource) Create(ctx context.Context, req resource.CreateReq
 		}
 	}
 
+	// Convert []string back to types.List
+	logoutUrisList := make([]attr.Value, len(logoutUris))
+	for i, uri := range logoutUris {
+		logoutUrisList[i] = types.StringValue(uri)
+	}
+
+	redirectUrisList := make([]attr.Value, len(redirectUris))
+	for i, uri := range redirectUris {
+		redirectUrisList[i] = types.StringValue(uri)
+	}
+
 	plan = ApplicationResourceModel{
 		ApplicationId: types.StringValue(application.Id),
 		Name:          types.StringValue(application.Name),
 		Type:          types.StringValue(application.Type),
 		ClientId:      types.StringValue(application.ClientId),
 		ClientSecret:  types.StringValue(application.ClientSecret),
-		LogoutUris:    plan.LogoutUris,
-		RedirectUris:  plan.RedirectUris,
+		LogoutUris:    types.ListValueMust(types.StringType, logoutUrisList),
+		RedirectUris:  types.ListValueMust(types.StringType, redirectUrisList),
 	}
 
 	diags = resp.State.Set(ctx, plan)
@@ -188,115 +208,110 @@ func (r *ApplicationResource) Create(ctx context.Context, req resource.CreateReq
 
 // Read refreshes the Terraform state with the latest data.
 func (r *ApplicationResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state ApplicationResourceModel
-	diags := req.State.Get(ctx, &state)
-	resp.Diagnostics.Append(diags...)
+	var data ApplicationResourceModel
+
+	// Read Terraform prior state data into the model
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	application, err := r.client.GetApplication(ctx, state.ApplicationId.ValueString())
+	// Get application details
+	application, err := r.client.GetApplication(ctx, data.ApplicationId.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error Reading application",
-			"Could not read application ID "+state.ApplicationId.ValueString()+": "+err.Error(),
-		)
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application, got error: %s", err))
 		return
 	}
 
-	// Get callbacks
-	callbacks, err := r.client.GetCallbacks(ctx, state.ApplicationId.ValueString())
+	// Get application callbacks
+	callbacks, err := r.client.GetApplicationCallbacks(ctx, data.ApplicationId.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error Reading application callbacks",
-			"Could not read application callbacks: "+err.Error(),
-		)
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application callbacks, got error: %s", err))
 		return
 	}
 
-	// Convert []string to []types.String
-	logoutUris := make([]types.String, len(callbacks.LogoutUris))
+	// Convert []string to types.List
+	logoutUrisList := make([]attr.Value, len(callbacks.LogoutUris))
 	for i, uri := range callbacks.LogoutUris {
-		logoutUris[i] = types.StringValue(uri)
+		logoutUrisList[i] = types.StringValue(uri)
 	}
 
-	redirectUris := make([]types.String, len(callbacks.RedirectUris))
+	redirectUrisList := make([]attr.Value, len(callbacks.RedirectUris))
 	for i, uri := range callbacks.RedirectUris {
-		redirectUris[i] = types.StringValue(uri)
+		redirectUrisList[i] = types.StringValue(uri)
 	}
 
-	state.ApplicationId = types.StringValue(application.Id)
-	state.Name = types.StringValue(application.Name)
-	state.Type = types.StringValue(application.Type)
-	state.ClientId = types.StringValue(application.ClientId)
-	state.ClientSecret = types.StringValue(application.ClientSecret)
-	state.LogoutUris = logoutUris
-	state.RedirectUris = redirectUris
+	// Update the model with the response data
+	data.ApplicationId = types.StringValue(application.Id)
+	data.Name = types.StringValue(application.Name)
+	data.Type = types.StringValue(application.Type)
+	data.ClientId = types.StringValue(application.ClientId)
+	data.ClientSecret = types.StringValue(application.ClientSecret)
+	data.LogoutUris = types.ListValueMust(types.StringType, logoutUrisList)
+	data.RedirectUris = types.ListValueMust(types.StringType, redirectUrisList)
 
-	diags = resp.State.Set(ctx, &state)
-	resp.Diagnostics.Append(diags...)
+	// Save updated data into Terraform state
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *ApplicationResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan ApplicationResourceModel
-	diags := req.Plan.Get(ctx, &plan)
-	resp.Diagnostics.Append(diags...)
+	var data ApplicationResourceModel
+
+	// Read Terraform plan data into the model
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	var state ApplicationResourceModel
-	diags = req.State.Get(ctx, &state)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Update application name if changed
-	if plan.Name.ValueString() != state.Name.ValueString() {
-		application, err := r.client.UpdateApplication(ctx, state.ApplicationId.ValueString(), plan.Name.ValueString(), nil, nil)
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Error updating application",
-				"Could not update application, unexpected error: "+err.Error(),
-			)
+	// Convert types.List to []string
+	var logoutUris []string
+	if !data.LogoutUris.IsNull() && !data.LogoutUris.IsUnknown() {
+		diags := data.LogoutUris.ElementsAs(ctx, &logoutUris, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
 			return
 		}
-		plan.ApplicationId = types.StringValue(application.Id)
-		plan.Name = types.StringValue(application.Name)
-		plan.Type = types.StringValue(application.Type)
-		plan.ClientId = types.StringValue(application.ClientId)
-		plan.ClientSecret = types.StringValue(application.ClientSecret)
 	}
 
-	// Convert types.String slices to []string
-	logoutUris := make([]string, len(plan.LogoutUris))
-	for i, uri := range plan.LogoutUris {
-		logoutUris[i] = uri.ValueString()
+	var redirectUris []string
+	if !data.RedirectUris.IsNull() && !data.RedirectUris.IsUnknown() {
+		diags := data.RedirectUris.ElementsAs(ctx, &redirectUris, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
-	redirectUris := make([]string, len(plan.RedirectUris))
-	for i, uri := range plan.RedirectUris {
-		redirectUris[i] = uri.ValueString()
+	// Update application
+	application, err := r.client.UpdateApplication(ctx, data.ApplicationId.ValueString(), data.Name.ValueString(), logoutUris, redirectUris)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update application, got error: %s", err))
+		return
 	}
 
-	// Update callbacks if changed
+	// Update callbacks
 	callbacks := kinde_client.Callbacks{
 		LogoutUris:   logoutUris,
 		RedirectUris: redirectUris,
 	}
-	_, err := r.client.UpdateCallbacks(ctx, state.ApplicationId.ValueString(), callbacks)
+	_, err = r.client.UpdateApplicationCallbacks(ctx, data.ApplicationId.ValueString(), callbacks)
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error updating application callbacks",
-			"Could not update application callbacks, unexpected error: "+err.Error(),
-		)
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update application callbacks, got error: %s", err))
 		return
 	}
 
-	diags = resp.State.Set(ctx, plan)
-	resp.Diagnostics.Append(diags...)
+	// Map response body to model
+	data.ApplicationId = types.StringValue(application.Id)
+	data.Name = types.StringValue(application.Name)
+	data.Type = types.StringValue(application.Type)
+	data.ClientId = types.StringValue(application.ClientId)
+	data.ClientSecret = types.StringValue(application.ClientSecret)
+
+	// Set state
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 // Delete deletes the resource and removes the Terraform state on success.

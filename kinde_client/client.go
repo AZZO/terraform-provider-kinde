@@ -187,6 +187,17 @@ func doPostRequest[T any](c *Client, ctx context.Context, url string, body inter
 	return output, nil
 }
 
+// doDeleteRequest performs a DELETE request and unmarshals the response
+func doDeleteRequest[T any](c *Client, ctx context.Context, endpoint string) (T, error) {
+	var response T
+	url := fmt.Sprintf("%s%s", c.IssuerUrl, endpoint)
+	_, err := c.doRequest(ctx, "DELETE", url, nil, 3)
+	if err != nil {
+		return response, err
+	}
+	return response, nil
+}
+
 // isHttpStatusCodeSuccess checks if the status code indicates success
 func isHttpStatusCodeSuccess(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300

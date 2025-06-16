@@ -2,17 +2,14 @@ package kinde_client
 
 import (
 	"context"
-	"fmt"
 )
 
 // GetEnvironment retrieves information about a specific environment
-func (c *Client) GetEnvironment(ctx context.Context, environmentId string) (*EnvironmentResource, error) {
-	url := fmt.Sprintf("%s/api/v1/environment/%s", c.IssuerUrl, environmentId)
-
-	response, err := doGetRequest[responseEnvironmentGet](c, ctx, url)
+func (c *Client) GetEnvironment(ctx context.Context, environmentId string) (EnvironmentResource, error) {
+	response, err := doGetRequest[responseEnvironmentGet](c, ctx, c.endpointEnvironmentGet(environmentId))
 	if err != nil {
-		return nil, fmt.Errorf("error getting environment: %w", err)
+		return EnvironmentResource{}, err
 	}
 
-	return &response.Environment, nil
+	return response.Environment, nil
 }

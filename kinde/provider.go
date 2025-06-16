@@ -141,6 +141,9 @@ func (p *KindeProvider) Resources(ctx context.Context) []func() resource.Resourc
 	return []func() resource.Resource{
 		resources.NewApplicationResource,
 		resources.NewApiResource,
+		resources.NewApiScopeResource,
+		resources.NewRoleResource,
+		resources.NewPermissionResource,
 	}
 }
 
@@ -149,6 +152,9 @@ func (p *KindeProvider) DataSources(ctx context.Context) []func() datasource.Dat
 		datasources.NewApplicationDataSource,
 		datasources.NewApiDataSource,
 		datasources.NewEnvironmentDataSource,
+		datasources.NewPermissionDataSource,
+		datasources.NewRoleDataSource,
+		datasources.NewApiScopeDataSource,
 	}
 }
 
