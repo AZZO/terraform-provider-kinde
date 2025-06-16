@@ -81,6 +81,88 @@ The following attributes are exported:
 * `client_id` - The client ID of the application.
 * `client_secret` - The client secret of the application.
 
+### kinde_api
+
+The `kinde_api` resource is used to manage Kinde APIs.
+
+#### Example Usage
+
+```hcl
+resource "kinde_api" "example" {
+  name     = "example-api"
+  audience = "https://api.example.com"
+}
+```
+
+#### Argument Reference
+
+The following arguments are supported:
+
+* `name` - (Required) The name of the API.
+* `audience` - (Required) The audience for the API. Must be between 1 and 64 characters.
+
+#### Attributes Reference
+
+The following attributes are exported:
+
+* `api_id` - The unique identifier of the API.
+
+## Data Sources
+
+### kinde_application
+
+The `kinde_application` data source is used to get information about a Kinde application.
+
+#### Example Usage
+
+```hcl
+data "kinde_application" "example" {
+  application_id = "your-application-id"
+}
+```
+
+#### Argument Reference
+
+The following arguments are supported:
+
+* `application_id` - (Required) The unique identifier of the application.
+
+#### Attributes Reference
+
+The following attributes are exported:
+
+* `name` - The name of the application.
+* `type` - The type of the application.
+* `client_id` - The client ID of the application.
+* `client_secret` - The client secret of the application.
+* `logout_uris` - List of logout URIs for the application.
+* `redirect_uris` - List of redirect URIs for the application.
+
+### kinde_api
+
+The `kinde_api` data source is used to get information about a Kinde API.
+
+#### Example Usage
+
+```hcl
+data "kinde_api" "example" {
+  api_id = "your-api-id"
+}
+```
+
+#### Argument Reference
+
+The following arguments are supported:
+
+* `api_id` - (Required) The unique identifier of the API.
+
+#### Attributes Reference
+
+The following attributes are exported:
+
+* `name` - The name of the API.
+* `audience` - The audience for the API.
+
 ## Development
 
 If you wish to work on the provider, you'll first need [Go](http://www.golang.org) installed on your machine (see [Requirements](#requirements) above).

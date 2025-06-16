@@ -30,3 +30,26 @@ type responseApplicationCreate struct {
 	Message     string              `json:"message"`
 	Application ApplicationResource `json:"application"`
 }
+
+type ApiResource struct {
+	Id       string `json:"id"`
+	Name     string `json:"name"`
+	Audience string `json:"audience"`
+}
+
+type requestApiCreate struct {
+	Name     string `json:"name"`
+	Audience string `json:"audience"`
+}
+
+type responseApiGet struct {
+	Code    string      `json:"code"`
+	Message string      `json:"message"`
+	Api     ApiResource `json:"api"`
+}
+
+type responseApiCreate struct {
+	Code    string      `json:"code"`
+	Message string      `json:"message"`
+	Api     ApiResource `json:"api"`
+}
